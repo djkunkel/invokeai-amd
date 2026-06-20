@@ -15,6 +15,9 @@ export LD_LIBRARY_PATH="$SCRIPT_DIR/.venv/lib/python3.12/site-packages/_rocm_sdk
 # Hide iGPU if present (use GPU 0 only)
 export HIP_VISIBLE_DEVICES=0
 
+# Enable aotriton flash/mem-efficient attention on gfx1201 (matches run.sh)
+export TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1
+
 echo "============================================"
 echo "PyTorch ROCm Test Script"
 echo "============================================"
@@ -151,6 +154,53 @@ if torch.cuda.is_available():
 else:
     print('  CUDA not available')
 "
+
+echo ""
+echo "=== Scaled Dot Product Attention (flash/mem-efficient) ==="
+# This is the path that breaks on gfx1201 when the aotriton flash kernel
+# images (amd-torch-device-gfx12-0) are missing: flash/efficient SDPA crash
+# with "HIP error: invalid argument" and only MATH works (but ~8x slower).
+python -c "
+import torch, torch.nn.functional as F, time
+from torch.nn.attention import sdpa_kernel, SDPBackend
+
+def run(name, backend):
+    try:
+        q = torch.randn(2, 16, 256, 128, dtype=torch.bfloat16, device='cuda')
+        k = torch.randn(2, 16, 256, 128, dtype=torch.bfloat16, device='cuda')
+        v = torch.randn(2, 16, 256, 128, dtype=torch.bfloat16, device='cuda')
+        with sdpa_kernel(backend):
+            o = F.scaled_dot_product_attention(q, k, v)
+        torch.cuda.synchronize()
+        with sdpa_kernel(SDPBackend.MATH):
+            om = F.scaled_dot_product_attention(q, k, v)
+        torch.cuda.synchronize()
+        diff = (o.float() - om.float()).abs().max().item()
+        status = 'PASS' if diff < 0.1 else f'WRONG (diff {diff:.3f})'
+        print(f'  {name}: {status}')
+    except Exception as e:
+        print(f'  {name}: FAIL - {type(e).__name__}: {str(e).splitlines()[0]}')
+
+run('FLASH backend', SDPBackend.FLASH_ATTENTION)
+run('EFFICIENT backend', SDPBackend.EFFICIENT_ATTENTION)
+
+# Throughput comparison at diffusion-transformer scale (4k tokens).
+def bench(backend):
+    q = torch.randn(1, 24, 4096, 128, dtype=torch.bfloat16, device='cuda')
+    with sdpa_kernel(backend):
+        for _ in range(3): F.scaled_dot_product_attention(q, q, q)
+        torch.cuda.synchronize(); t = time.time()
+        for _ in range(20): F.scaled_dot_product_attention(q, q, q)
+        torch.cuda.synchronize()
+    return (time.time() - t) / 20 * 1000
+
+try:
+    f = bench(SDPBackend.FLASH_ATTENTION)
+    m = bench(SDPBackend.MATH)
+    print(f'  Speed @4k tokens: FLASH {f:.1f}ms vs MATH {m:.1f}ms ({m/f:.1f}x faster)')
+except Exception as e:
+    print(f'  Speed bench skipped: {type(e).__name__}')
+" 2>/dev/null
 
 echo ""
 echo "============================================"
