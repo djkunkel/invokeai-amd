@@ -20,6 +20,12 @@ export HIP_VISIBLE_DEVICES=0
 # Enable aotriton flash/mem-efficient attention on gfx1201 (matches run.sh)
 export TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1
 
+# Force FlexiBLAS to the netlib backend (matches run.sh). patchmatch's
+# libpatchmatch.so links Fedora's OpenCV -> libflexiblas.so.3; the default
+# openblas-openmp backend dispatches into torch's bundled ROCm OpenBLAS at
+# dlopen() time and segfaults. netlib avoids that. See the patchmatch test below.
+export FLEXIBLAS=netlib
+
 echo "============================================"
 echo "PyTorch ROCm Test Script"
 echo "============================================"
@@ -202,6 +208,28 @@ try:
     print(f'  Speed @4k tokens: FLASH {f:.1f}ms vs MATH {m:.1f}ms ({m/f:.1f}x faster)')
 except Exception as e:
     print(f'  Speed bench skipped: {type(e).__name__}')
+" 2>/dev/null
+
+echo ""
+echo "=== PatchMatch (loads after torch; FlexiBLAS/OpenBLAS conflict check) ==="
+# patchmatch's libpatchmatch.so drags in Fedora's OpenCV -> FlexiBLAS. With the
+# wrong FlexiBLAS backend, loading it after torch segfaults in OpenBLAS during
+# dlopen(). FLEXIBLAS=netlib (set above) must keep this passing.
+python -c "
+import torch  # load torch first, as invokeai-web does
+try:
+    from patchmatch import patch_match as pm
+    if not pm.patchmatch_available:
+        print('  PatchMatch load: FAIL - not available')
+    else:
+        import numpy as np
+        img = (np.random.rand(64, 64, 3) * 255).astype('uint8')
+        mask = np.zeros((64, 64, 1), dtype='uint8'); mask[20:40, 20:40] = 1
+        out = pm.inpaint(img, mask, patch_size=3)
+        ok = out.shape == (64, 64, 3)
+        print(f'  PatchMatch load + inpaint: {\"PASS\" if ok else \"FAIL\"}')
+except Exception as e:
+    print(f'  PatchMatch: FAIL - {type(e).__name__}: {str(e).splitlines()[0]}')
 " 2>/dev/null
 
 echo ""

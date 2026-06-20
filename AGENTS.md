@@ -42,9 +42,9 @@ installed; everything (ROCm libs, torch, kernels) lives in the `.venv`.
 
 ## Critical knowledge (hard-won; do not regress)
 
-This stack has three separate gfx1201 gotchas. All three must hold or generation
-breaks. `retorch.sh` has sanity checks for the first two; `test_torch.sh`
-exercises all three.
+This stack has four separate gotchas. All must hold or generation breaks.
+`retorch.sh` has sanity checks for the first two; `test_torch.sh` exercises all
+four.
 
 1. **Compute kernels** come from `amd-torch-device-gfx1201`
    (`torch/.kpack/torch_gfx1201.kpack`). torch loads them at runtime via the
@@ -72,6 +72,20 @@ exercises all three.
    `run.sh`/`test_torch.sh` add that dir to `LD_LIBRARY_PATH`. Without it you get
    a harmless-but-noisy `rocSHMEM Could not open libnuma` notice (rocSHMEM is
    unused here, so it's cosmetic).
+
+4. **FlexiBLAS vs ROCm OpenBLAS** (patchmatch): InvokeAI's patchmatch infill
+   loads `patchmatch/libpatchmatch.so`, which links Fedora's system OpenCV stack
+   and thus `libflexiblas.so.3`. At `dlopen()` time FlexiBLAS's initializer picks
+   a backend BLAS; with the default `openblas-openmp` it dispatches into the
+   ROCm-bundled `librocm-openblas.so.0` (already loaded by torch) and **segfaults
+   in `ztrsm_iunncopy_COOPERLAKE`** — coredump during plain library load, before
+   any inference. Fix: `export FLEXIBLAS=netlib` (set in `run.sh` and
+   `test_torch.sh`), which avoids the OpenBLAS dispatch path. patchmatch then
+   loads and inpaints correctly. This only triggers when torch is imported
+   *before* patchmatch (i.e. always, in invokeai-web). The old workaround was
+   `INVOKEAI_PATCHMATCH=false`, which disabled patchmatch entirely. Note
+   `FLEXIBLAS=netlib` only affects this CPU patchmatch path; GPU/flash kernels
+   are unchanged (test still shows ~8x flash speedup).
 
 ### Packaging-trap pattern
 
