@@ -24,14 +24,16 @@ for cand in \
     /usr/lib/x86_64-linux-gnu/libnuma.so.1 \
     /lib/x86_64-linux-gnu/libnuma.so.1; do
     if [[ -e "${cand}" ]]; then
-        NUMA_LIB="$(readlink -f "${cand}")"
+        # Point at the SONAME path (libnuma.so.1), NOT the resolved versioned
+        # file (libnuma.so.1.0.0). The SONAME is kept stable by the package
+        # manager, so the shim survives minor libnuma updates.
+        NUMA_LIB="${cand}"
         break
     fi
 done
 # Fall back to ldconfig if the well-known paths missed it.
 if [[ -z "${NUMA_LIB}" ]]; then
     NUMA_LIB="$(ldconfig -p 2>/dev/null | awk '/libnuma\.so\.1/ {print $NF; exit}')"
-    [[ -n "${NUMA_LIB}" ]] && NUMA_LIB="$(readlink -f "${NUMA_LIB}")"
 fi
 
 if [[ -z "${NUMA_LIB}" || ! -e "${NUMA_LIB}" ]]; then
