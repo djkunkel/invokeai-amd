@@ -3,5 +3,11 @@
 # Get available versions from: https://rocm.nightlies.amd.com/whl-multi-arch/torch/
 
 # Core torch packages
-torch==2.10.0+rocm7.14.0a20260618
-torchvision==0.25.0+rocm7.14.0a20260618
+torch==2.10.0+rocm7.14.0a20260619
+torchvision==0.25.0+rocm7.14.0a20260619
+
+# Per-arch kernel packs (gfx1201). MUST match the torch/torchvision nightly
+# above. Without these, torch has no device kernels and every GPU op fails
+# with "HIP error: device kernel image is invalid".
+amd-torch-device-gfx1201==2.10.0+rocm7.14.0a20260619
+amd-torchvision-device-gfx1201==0.25.0+rocm7.14.0a20260619

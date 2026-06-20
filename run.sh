@@ -1,2 +1,2 @@
 source .venv/bin/activate
-INVOKEAI_PATCHMATCH=false invokeai-web --root /mnt/extra/invokeai
+HIP_VISIBLE_DEVICES=0 INVOKEAI_PATCHMATCH=false invokeai-web --root /mnt/extra/invokeai
