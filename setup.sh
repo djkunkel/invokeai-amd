@@ -17,6 +17,9 @@ echo "=== Installing ROCm torch with device packages ==="
 echo "=== Setting up bitsandbytes ROCm shim ==="
 ./bnb.sh
 
+echo "=== Setting up libnuma shim ==="
+./numa.sh
+
 deactivate
 
 echo "=== Setup complete ==="

@@ -9,8 +9,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Activate venv and set env vars
 source "$SCRIPT_DIR/.venv/bin/activate"
 
-# Set ROCm library path for when ROCm is bundled in venv
-export LD_LIBRARY_PATH="$SCRIPT_DIR/.venv/lib/python3.12/site-packages/_rocm_sdk_core/lib:$SCRIPT_DIR/.venv/lib/python3.12/site-packages/_rocm_sdk_libraries/lib:$SCRIPT_DIR/.venv/lib/python3.12/site-packages/torch/lib:$LD_LIBRARY_PATH"
+# Set ROCm library path for when ROCm is bundled in venv.
+# The numa-shim dir provides the unversioned libnuma.so that
+# libtorch_rocshmem.so dlopen()s (see numa.sh).
+export LD_LIBRARY_PATH="$SCRIPT_DIR/.venv/numa-shim:$SCRIPT_DIR/.venv/lib/python3.12/site-packages/_rocm_sdk_core/lib:$SCRIPT_DIR/.venv/lib/python3.12/site-packages/_rocm_sdk_libraries/lib:$SCRIPT_DIR/.venv/lib/python3.12/site-packages/torch/lib:$LD_LIBRARY_PATH"
 
 # Hide iGPU if present (use GPU 0 only)
 export HIP_VISIBLE_DEVICES=0
