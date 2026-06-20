@@ -11,4 +11,4 @@ export TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1
 # (see numa.sh). Silences the harmless "rocSHMEM Could not open libnuma" notice.
 export LD_LIBRARY_PATH="$(dirname "$(readlink -f "$0")")/.venv/numa-shim${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-HIP_VISIBLE_DEVICES=0 INVOKEAI_PATCHMATCH=false invokeai-web --root /mnt/extra/invokeai
+INVOKEAI_PATCHMATCH=false invokeai-web --root /mnt/extra/invokeai

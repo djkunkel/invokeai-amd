@@ -37,7 +37,6 @@ fi
 #       invalid argument", forcing the ~8x slower MATH fallback.
 #       (Only present in torch >= 2.12.0.)
 INSTALL_ARGS=(
-    "rocm[libraries, device-gfx1201]"
     "torch[device-gfx1201]"
     "torchvision[device-gfx1201]"
     "amd-torch-device-gfx1201"
