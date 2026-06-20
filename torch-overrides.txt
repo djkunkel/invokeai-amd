@@ -1,0 +1,7 @@
+# ROCm torch overrides - pin working versions
+# Edit these to try new versions, then run ./retorch.sh to reinstall
+# Get available versions from: https://rocm.nightlies.amd.com/whl-multi-arch/torch/
+
+# Core torch packages
+torch==2.10.0+rocm7.14.0a20260618
+torchvision==0.25.0+rocm7.14.0a20260618
